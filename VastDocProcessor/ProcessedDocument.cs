@@ -19,7 +19,7 @@ namespace VastDocProcessor
         string docID = "";
         string title = "";
         string time = "";
-        string serializedProcessedDocument = "";
+        string[] serializedProcessedDocument;
         public string Title
         {
             get
@@ -72,7 +72,7 @@ namespace VastDocProcessor
             }
         }
 
-        public string SerializedProcessedDocument
+        public string[] SerializedProcessedDocument
         {
             get
             {
@@ -87,8 +87,7 @@ namespace VastDocProcessor
 
         internal string ToJson()
         {
-            string[] result = list.Select(t => t.ToJson()).ToArray();
-            serializedProcessedDocument = String.Join("",result);          
+            serializedProcessedDocument = list.Select(t => t.ToJson()).ToArray();       
             return JsonConvert.SerializeObject(this);
         }
         public ProcessedDocument(string docID, string filePath)
@@ -101,7 +100,7 @@ namespace VastDocProcessor
             foreach (HtmlNode pnode in doc.DocumentNode.SelectNodes("p"))
             {
                 var dnode = pnode.Descendants();
-                HtmlNode previousNode=null;
+                string previousNode="";
                 if (pnode.Attributes["id"].Value.Equals("1"))
                 {
                     title = pnode.InnerText.Trim();
@@ -110,13 +109,10 @@ namespace VastDocProcessor
                     time = pnode.InnerText.Remove(0, "Date Published to Web: ".Length).Trim();
                 }
                 foreach (HtmlNode cnode in dnode)
-                {                   
-                    if (previousNode != null)
+                {
+                    if (previousNode.Equals(cnode.InnerText))
                     {
-                        if (previousNode.InnerText.Equals(cnode.InnerText))
-                        {
-                            continue;
-                        }
+                        continue;
                     }
                     if (cnode.InnerText.Length > 0)
                     {
@@ -137,11 +133,12 @@ namespace VastDocProcessor
                             ProcessRegular(cnode, tokenList);
                         }
                     }
-                    previousNode = cnode;
+                    previousNode = cnode.InnerText;
                 }
                 Token tk = new Token();
                 tk.WordType = WordType.LINEBREAK;
-                tk.OriginalWord = "\\n"; 
+                tk.OriginalWord = "\\n";
+                tokenList.Add(tk);
             }
             this.list = tokenList.ToArray();
         }
@@ -156,16 +153,16 @@ namespace VastDocProcessor
             {
                 if (regex.IsMatch("" + content[i]))//Add a spliter
                 {
-                    Token tk = new Token();
-                    tk.OriginalWord = "" + content[i];
-                    tempList.Add(tk);
                     if (stack.Length > 0)
                     {
                         Token token = new Token();
-                        token.OriginalWord = stack;
+                        token.OriginalWord = stack.Trim();
                         tempList.Add(token);
                         stack = "";
                     }
+                    Token tk = new Token();
+                    tk.OriginalWord = "" + content[i];
+                    tempList.Add(tk);
                 }
                 else//Add the letter to the word stack
                 {
@@ -181,7 +178,6 @@ namespace VastDocProcessor
             foreach (Token tk in tempList)
             {
                 tk.Process();
-                //Console.WriteLine(tk.OriginalWord);
                 tokenList.Add(tk);
             }
         }
@@ -189,8 +185,9 @@ namespace VastDocProcessor
         private void ProcessTime(HtmlNode cnode, List<Token> tokenList)
         {
             Token token = new Token();
-            token.OriginalWord = Regex.Replace(cnode.InnerText, @"[^\u0000-\u007F]+", " ");
+            token.OriginalWord = Regex.Replace(cnode.InnerText.Trim(), @"[^\u0000-\u007F]+", " ");
             token.StemmedWord = token.OriginalWord.ToLower();
+            token.Process();
             if (cnode.Attributes["type"].Value.Equals("DATE"))
             {
                 token.WordType = WordType.DATE;
@@ -208,8 +205,9 @@ namespace VastDocProcessor
         private void ProcessNumber(HtmlNode cnode, List<Token> tokenList)
         {
             Token token = new Token();
-            token.OriginalWord = Regex.Replace(cnode.InnerText, @"[^\u0000-\u007F]+", " ");
+            token.OriginalWord = Regex.Replace(cnode.InnerText.Trim(), @"[^\u0000-\u007F]+", " ");
             token.StemmedWord = token.OriginalWord.ToLower();
+            token.Process();
             if (cnode.Attributes["type"].Value.Equals("MONEY"))
             {
                 token.WordType = WordType.MONEY;
@@ -224,8 +222,9 @@ namespace VastDocProcessor
         private void ProcessName(HtmlNode cnode, List<Token> tokenList)
         {
             Token token = new Token();
-            token.OriginalWord = Regex.Replace(cnode.InnerText, @"[^\u0000-\u007F]+", " ");
+            token.OriginalWord = Regex.Replace(cnode.InnerText, @"[^\u0000-\u007F]+", " ").Trim();
             token.StemmedWord = token.OriginalWord.ToLower();
+            token.Process();
             if (cnode.Attributes["type"].Value.Equals("LOCATION"))
             {
                 token.WordType = WordType.LOCACTION;

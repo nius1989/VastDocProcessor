@@ -27,7 +27,7 @@ namespace VastDocProcessor
             {
                 foreach (ProcessedDocument pd in mdir.GetList())
                 {
-                    sw.Write(pd.ToJson());
+                    sw.WriteLine(pd.ToJson());
                 }
             }
             Console.ReadLine();
